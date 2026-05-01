@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/app_text_styles.dart';
 import '../../data/models/quote_model.dart';
-import '../../viewmodel/quotes_viewmodel.dart';
+import '../../viewmodel/quotes_controller.dart';
 import '../widgets/favorite_button.dart';
 import '../widgets/quote_card.dart';
 import 'about_screen.dart';
@@ -22,54 +22,65 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<QuotesViewModel>();
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_titleForIndex(_selectedIndex)),
-        actions: <Widget>[
-          IconButton(
-            tooltip: 'Update quotes',
-            onPressed: viewModel.isLoading
-                ? null
-                : () => viewModel.fetchLatestQuotes(force: true),
-            icon: const Icon(Icons.refresh),
+    return GetBuilder<QuotesController>(
+      builder: (controller) {
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(_titleForIndex(_selectedIndex)),
+            actions: <Widget>[
+              if (_selectedIndex == 0)
+                IconButton(
+                  tooltip: controller.isAutoRotateEnabled
+                      ? 'Disable Stories Mode'
+                      : 'Enable Stories Mode',
+                  onPressed: controller.toggleAutoRotate,
+                  icon: Icon(
+                    controller.isAutoRotateEnabled
+                        ? Icons.auto_mode
+                        : Icons.play_circle_outline,
+                    color: controller.isAutoRotateEnabled
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                ),
+              IconButton(
+                tooltip: _themeTooltip(controller.themeMode),
+                onPressed: controller.toggleThemeMode,
+                icon: Icon(_themeIcon(controller.themeMode)),
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: _themeTooltip(viewModel.themeMode),
-            onPressed: viewModel.toggleThemeMode,
-            icon: Icon(_themeIcon(viewModel.themeMode)),
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _buildBody(_selectedIndex),
           ),
-        ],
-      ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 220),
-        child: _buildBody(_selectedIndex),
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        destinations: const <NavigationDestination>[
-          NavigationDestination(
-            label: 'Home',
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
+          bottomNavigationBar: NavigationBar(
+            selectedIndex: _selectedIndex,
+            onDestinationSelected: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+            destinations: const <NavigationDestination>[
+              NavigationDestination(
+                label: 'Home',
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+              ),
+              NavigationDestination(
+                label: 'Favorites',
+                icon: Icon(Icons.favorite_outline),
+                selectedIcon: Icon(Icons.favorite),
+              ),
+              NavigationDestination(
+                label: 'About',
+                icon: Icon(Icons.info_outline),
+                selectedIcon: Icon(Icons.info),
+              ),
+            ],
           ),
-          NavigationDestination(
-            label: 'Favorites',
-            icon: Icon(Icons.favorite_outline),
-            selectedIcon: Icon(Icons.favorite),
-          ),
-          NavigationDestination(
-            label: 'About',
-            icon: Icon(Icons.info_outline),
-            selectedIcon: Icon(Icons.info),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -107,72 +118,88 @@ class _DailyQuoteView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<QuotesViewModel>(
-      builder: (context, viewModel, _) {
-        final quotes = viewModel.quotes;
+    return GetBuilder<QuotesController>(
+      builder: (controller) {
+        final quotes = controller.quotes;
 
-        if (viewModel.isLoading && quotes.isEmpty) {
+        if (controller.isLoading && quotes.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
         if (quotes.isEmpty) {
-          final message = viewModel.error ??
+          final message = controller.error ??
               'No quotes available right now. Pull down to try again.';
           return _ErrorState(
             message: message,
-            onRetry: () => viewModel.fetchLatestQuotes(force: true),
+            onRetry: () => controller.fetchLatestQuotes(force: true),
           );
         }
 
-        final quoteOfDay = viewModel.quoteOfDay;
-        final currentQuote = viewModel.currentQuote;
-        final friendlyDate =
-            viewModel.dateHelper.formatFriendly(DateTime.now());
+        final quoteOfDay = controller.quoteOfDay;
+        final currentQuote = controller.currentQuote;
+        final lastUpdated = controller.lastUpdated;
 
         return RefreshIndicator(
-          onRefresh: () => viewModel.fetchLatestQuotes(force: true),
+          onRefresh: () => controller.fetchLatestQuotes(force: true),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 120),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
             children: <Widget>[
+              if (lastUpdated != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    'Last updated: ${_formatTime(lastUpdated)}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.outline,
+                        ),
+                  ),
+                ),
               if (quoteOfDay != null) ...<Widget>[
                 _QuoteOfDaySection(
                   quote: quoteOfDay,
-                  dateLabel: friendlyDate,
+                  dateLabel: controller.dateHelper.formatFriendly(DateTime.now()),
                 ),
                 const SizedBox(height: 28),
               ],
               Text(
-                'Browse inspiration',
-                style: AppTextStyles.sectionTitle(context),
+                'Explore Wisdom',
+                style: AppTextStyles.sectionTitle(context).copyWith(
+                  letterSpacing: 0.5,
+                ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               SizedBox(
-                height: 340,
+                height: 380,
                 child: _QuoteCarousel(quotes: quotes),
               ),
               const SizedBox(height: 16),
               _QuotePagerStatus(
-                currentIndex: viewModel.currentIndex,
+                currentIndex: controller.currentIndex,
                 total: quotes.length,
               ),
               const SizedBox(height: 24),
               if (currentQuote != null) _QuoteActions(quote: currentQuote),
-              if (viewModel.error != null) ...<Widget>[
+              if (controller.error != null) ...<Widget>[
                 const SizedBox(height: 18),
-                _InlineWarning(message: viewModel.error!),
+                _InlineWarning(message: controller.error!),
               ],
-              const SizedBox(height: 12),
-              Text(
-                'Swipe left or right, use the arrows, or tap refresh in the toolbar whenever you want the latest wisdom.',
-                style: AppTextStyles.body(context),
-                textAlign: TextAlign.center,
-              ),
             ],
           ),
         );
       },
     );
+  }
+
+  String _formatTime(DateTime dt) {
+    final now = DateTime.now();
+    final diff = now.difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 }
 
@@ -192,7 +219,7 @@ class _QuoteCarouselState extends State<_QuoteCarousel> {
   @override
   void initState() {
     super.initState();
-    final initialPage = context.read<QuotesViewModel>().currentIndex;
+    final initialPage = Get.find<QuotesController>().currentIndex;
     _controller = PageController(initialPage: initialPage);
     _lastItemCount = widget.quotes.length;
   }
@@ -200,7 +227,7 @@ class _QuoteCarouselState extends State<_QuoteCarousel> {
   @override
   void didUpdateWidget(covariant _QuoteCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final viewModel = context.read<QuotesViewModel>();
+    final controller = Get.find<QuotesController>();
     if (widget.quotes.isEmpty) {
       _controller.dispose();
       _controller = PageController(initialPage: 0);
@@ -208,7 +235,7 @@ class _QuoteCarouselState extends State<_QuoteCarousel> {
       return;
     }
     final targetPage =
-        viewModel.currentIndex.clamp(0, widget.quotes.length - 1);
+        controller.currentIndex.clamp(0, widget.quotes.length - 1);
     if (widget.quotes.length != _lastItemCount) {
       _controller.dispose();
       _controller = PageController(initialPage: targetPage);
@@ -235,7 +262,7 @@ class _QuoteCarouselState extends State<_QuoteCarousel> {
   Widget build(BuildContext context) {
     return PageView.builder(
       controller: _controller,
-      onPageChanged: context.read<QuotesViewModel>().setCurrentIndex,
+      onPageChanged: Get.find<QuotesController>().setCurrentIndex,
       itemCount: widget.quotes.length,
       itemBuilder: (context, index) => QuoteCard(quote: widget.quotes[index]),
     );
@@ -317,42 +344,45 @@ class _QuoteActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<QuotesViewModel>();
-    final isFavorite = viewModel.isFavorite(quote);
+    return GetBuilder<QuotesController>(
+      builder: (controller) {
+        final isFavorite = controller.isFavorite(quote);
 
-    return Column(
-      children: <Widget>[
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        return Column(
           children: <Widget>[
-            IconButton(
-              tooltip: 'Previous quote',
-              onPressed: viewModel.canGoPrevious
-                  ? viewModel.goToPreviousQuote
-                  : null,
-              icon: const Icon(Icons.chevron_left),
-            ),
-            const SizedBox(width: 4),
-            FavoriteButton(
-              isFavorite: isFavorite,
-              onPressed: () => viewModel.toggleFavorite(quote),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Share quote',
-              onPressed: () => _shareQuote(quote),
-              icon: const Icon(Icons.share),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Next quote',
-              onPressed:
-                  viewModel.canGoNext ? viewModel.goToNextQuote : null,
-              icon: const Icon(Icons.chevron_right),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                IconButton(
+                  tooltip: 'Previous quote',
+                  onPressed: controller.canGoPrevious
+                      ? controller.goToPreviousQuote
+                      : null,
+                  icon: const Icon(Icons.chevron_left),
+                ),
+                const SizedBox(width: 4),
+                FavoriteButton(
+                  isFavorite: isFavorite,
+                  onPressed: () => controller.toggleFavorite(quote),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Share quote',
+                  onPressed: () => _shareQuote(quote),
+                  icon: const Icon(Icons.share),
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  tooltip: 'Next quote',
+                  onPressed:
+                      controller.canGoNext ? controller.goToNextQuote : null,
+                  icon: const Icon(Icons.chevron_right),
+                ),
+              ],
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 

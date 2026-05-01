@@ -1,11 +1,5 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:risefuel/core/utils/date_helper.dart';
@@ -13,7 +7,7 @@ import 'package:risefuel/data/local/quotes_local_data.dart';
 import 'package:risefuel/data/models/quote_model.dart';
 import 'package:risefuel/data/remote/quotes_api.dart';
 import 'package:risefuel/main.dart';
-import 'package:risefuel/viewmodel/quotes_viewmodel.dart';
+import 'package:risefuel/viewmodel/quotes_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -21,15 +15,18 @@ void main() {
   testWidgets('DailyQuotesApp displays fetched quotes', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     final prefs = await SharedPreferences.getInstance();
-    final viewModel = QuotesViewModel(
+    
+    // Inject fake controller
+    final controller = Get.put(QuotesController(
       localData: _FakeQuotesLocalData(),
       remoteData: _FakeQuotesApi(),
       sharedPreferences: prefs,
       dateHelper: const DateHelper(),
-    );
-    await viewModel.initialize(forceRefresh: true);
+    ));
+    
+    await controller.initialize(forceRefresh: true);
 
-    await tester.pumpWidget(DailyQuotesApp(viewModel: viewModel));
+    await tester.pumpWidget(const DailyQuotesApp());
     await tester.pumpAndSettle();
 
     expect(find.text('Quote of the Day'), findsOneWidget);

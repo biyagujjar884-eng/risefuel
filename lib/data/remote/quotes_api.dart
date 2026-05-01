@@ -11,6 +11,7 @@ class QuotesApi {
 
   static const String _quotesEndpoint = 'https://zenquotes.io/api/quotes';
   static const String _todayEndpoint = 'https://zenquotes.io/api/today';
+  static const String _randomEndpoint = 'https://zenquotes.io/api/random';
 
   Future<List<QuoteModel>> fetchQuotes() async {
     final response = await _client.get(Uri.parse(_quotesEndpoint));
@@ -34,6 +35,23 @@ class QuotesApi {
     if (response.statusCode != 200) {
       throw QuotesApiException(
         'Failed to fetch quote of the day: HTTP ${response.statusCode}',
+      );
+    }
+    final dynamic payload = jsonDecode(response.body);
+    if (payload is List && payload.isNotEmpty) {
+      final dynamic first = payload.first;
+      if (first is Map<String, dynamic>) {
+        return QuoteModel.fromJson(first);
+      }
+    }
+    return null;
+  }
+
+  Future<QuoteModel?> fetchRandomQuote() async {
+    final response = await _client.get(Uri.parse(_randomEndpoint));
+    if (response.statusCode != 200) {
+      throw QuotesApiException(
+        'Failed to fetch random quote: HTTP ${response.statusCode}',
       );
     }
     final dynamic payload = jsonDecode(response.body);

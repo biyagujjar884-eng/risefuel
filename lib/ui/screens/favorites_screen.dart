@@ -1,56 +1,59 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:get/get.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../core/constants/app_text_styles.dart';
 import '../../data/models/quote_model.dart';
-import '../../viewmodel/quotes_viewmodel.dart';
+import '../../viewmodel/quotes_controller.dart';
 
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.watch<QuotesViewModel>();
-    final favorites = viewModel.favoriteQuotes;
+    return GetBuilder<QuotesController>(
+      builder: (controller) {
+        final favorites = controller.favoriteQuotes;
 
-    if (favorites.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Icon(
-                Icons.favorite_border,
-                size: 48,
-                color: Theme.of(context).colorScheme.outline,
+        if (favorites.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  Icon(
+                    Icons.favorite_border,
+                    size: 48,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No favorites yet',
+                    style: AppTextStyles.sectionTitle(context),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Tap the heart icon on a quote you love to keep it here for quick access.',
+                    style: AppTextStyles.body(context),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'No favorites yet',
-                style: AppTextStyles.sectionTitle(context),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Tap the heart icon on a quote you love to keep it here for quick access.',
-                style: AppTextStyles.body(context),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+            ),
+          );
+        }
 
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
-      itemBuilder: (context, index) {
-        final quote = favorites[index];
-        return _FavoriteListItem(quote: quote);
+        return ListView.separated(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 96),
+          itemBuilder: (context, index) {
+            final quote = favorites[index];
+            return _FavoriteListItem(quote: quote);
+          },
+          separatorBuilder: (_, __) => const SizedBox(height: 14),
+          itemCount: favorites.length,
+        );
       },
-      separatorBuilder: (_, __) => const SizedBox(height: 14),
-      itemCount: favorites.length,
     );
   }
 }
@@ -62,7 +65,7 @@ class _FavoriteListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final viewModel = context.read<QuotesViewModel>();
+    final controller = Get.find<QuotesController>();
 
     return Card(
       margin: EdgeInsets.zero,
@@ -95,7 +98,7 @@ class _FavoriteListItem extends StatelessWidget {
             ),
             IconButton(
               tooltip: 'Remove from favorites',
-              onPressed: () => viewModel.removeFavorite(quote),
+              onPressed: () => controller.removeFavorite(quote),
               icon: const Icon(Icons.delete_outline),
             ),
           ],
